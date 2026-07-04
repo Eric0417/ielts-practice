@@ -1,0 +1,70 @@
+{
+  "type": "note-completion",
+  "questions": [
+    {
+      "q": "1",
+      "a": "cultural norms",
+      "type": "note-completion"
+    },
+    {
+      "q": "2",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "3",
+      "a": "FALSE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "4",
+      "a": "TRUE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "5",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "6",
+      "a": "forty",
+      "type": "note-completion"
+    },
+    {
+      "q": "7",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "8",
+      "a": "TRUE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "9",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "10",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "11",
+      "a": "feedback",
+      "type": "note-completion"
+    },
+    {
+      "q": "12",
+      "a": "TRUE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "13",
+      "a": "policy",
+      "type": "note-completion"
+    }
+  ]
+}

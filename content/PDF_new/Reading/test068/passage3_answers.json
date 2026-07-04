@@ -1,0 +1,70 @@
+{
+  "type": "true-false-not-given",
+  "questions": [
+    {
+      "q": "1",
+      "a": "TRUE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "2",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "3",
+      "a": "feedback",
+      "type": "note-completion"
+    },
+    {
+      "q": "4",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "5",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "6",
+      "a": "FALSE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "7",
+      "a": "dynamics",
+      "type": "note-completion"
+    },
+    {
+      "q": "8",
+      "a": "choices",
+      "type": "note-completion"
+    },
+    {
+      "q": "9",
+      "a": "cultural norms",
+      "type": "note-completion"
+    },
+    {
+      "q": "10",
+      "a": "FALSE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "11",
+      "a": "B",
+      "type": "multiple-choice"
+    },
+    {
+      "q": "12",
+      "a": "TRUE",
+      "type": "true-false-not-given"
+    },
+    {
+      "q": "13",
+      "a": "B",
+      "type": "multiple-choice"
+    }
+  ]
+}

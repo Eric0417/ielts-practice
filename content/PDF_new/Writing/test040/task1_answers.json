@@ -1,0 +1,13 @@
+{
+  "type": "writing-task1",
+  "chart_type": "process-diagram",
+  "word_limit": 150,
+  "task_description": "Summarize the information from the process diagram and make comparisons where relevant.",
+  "model_answer": "[Model answer: Write at least 150 words summarizing the process diagram. Include an overview paragraph highlighting main trends, and 2-3 body paragraphs with specific data comparisons.]",
+  "scoring_criteria": {
+    "task_achievement": "Presents a clear overview of main trends with relevant data support",
+    "coherence_and_cohesion": "Logical paragraphing with clear progression",
+    "lexical_resource": "Appropriate vocabulary for describing data trends",
+    "grammatical_range_and_accuracy": "Variety of sentence structures with minimal errors"
+  }
+}

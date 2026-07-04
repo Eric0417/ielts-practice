@@ -1,0 +1,12 @@
+{
+  "type": "writing-task2",
+  "word_limit": 250,
+  "task_description": "Write an essay in response to the given topic. Give reasons for your answer and include relevant examples from your own knowledge or experience.",
+  "model_answer": "[Model answer: Write at least 250 words. Structure: Introduction with clear position, 2-3 body paragraphs each with a main idea + supporting examples, and a conclusion that restates the position.]",
+  "scoring_criteria": {
+    "task_response": "Addresses all parts of the question with a clear position throughout",
+    "coherence_and_cohesion": "Clear paragraphing with cohesive devices used appropriately",
+    "lexical_resource": "Wide range of vocabulary with natural collocations",
+    "grammatical_range_and_accuracy": "Complex structures with frequent error-free sentences"
+  }
+}

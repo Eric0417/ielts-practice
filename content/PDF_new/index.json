@@ -1,0 +1,34 @@
+{
+  "title": "IELTS Practice Question Bank — Generated Content",
+  "generated": "2026-07-04",
+  "reading": {
+    "total_passages": 40,
+    "tests": 14,
+    "description": "Each test contains 3 passages (test001-test013 have 3, test014 has 1). Each passage PDF includes the full reading text and 13 questions with answer blanks. answers.json per test contains the answer key.",
+    "structure": "Reading/test{NNN}/passage{N}.pdf + answers.json"
+  },
+  "writing": {
+    "total_tasks": 80,
+    "task1_count": 40,
+    "task2_count": 40,
+    "tests": 40,
+    "description": "Each test contains Task 1 (chart/graph/diagram with prompt) and Task 2 (essay prompt). All 40 Task 1 PDFs include embedded chart images generated at 200dpi.",
+    "chart_types": {
+      "line-graph": 10,
+      "bar-chart": 10,
+      "pie-chart": 6,
+      "table": 6,
+      "map": 6,
+      "process-diagram": 5
+    },
+    "structure": "Writing/test{NNN}/task{1,2}.pdf"
+  },
+  "charts": {
+    "total": 40,
+    "format": "PNG",
+    "dpi": 200,
+    "description": "All charts follow strict color contrast rules: 7-step blue gradient palette (#DCE9F7→#2E77C0), adaptive text colors based on luminance, #0D1F5C badges/borders, #555555 arrows",
+    "structure": "charts/chart_{NN}.png"
+  },
+  "maps_description": "Grid-based planning maps: no overlapping elements, scale bar, compass, legend, matching before/after layouts"
+}

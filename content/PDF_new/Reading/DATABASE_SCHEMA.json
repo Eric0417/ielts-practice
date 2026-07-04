@@ -1,0 +1,79 @@
+{
+  "name": "IELTS Reading Database",
+  "description": "100 IELTS Reading practice tests with PDF passages, answers, and metadata.",
+  "path": "PDF_new/Reading",
+  "structure": {
+    "test_count": 100,
+    "test_naming": "test{001-100}",
+    "per_test": {
+      "required_files": [
+        { "name": "passage1.pdf", "description": "Reading passage 1 (PDF)" },
+        { "name": "passage2.pdf", "description": "Reading passage 2 (PDF)" },
+        { "name": "passage3.pdf", "description": "Reading passage 3 (PDF)" },
+        { "name": "answers.json", "description": "Questions and answer key", "schema_ref": "#answers_json_schema" }
+      ],
+      "optional_files": [
+        { "name": "passage1.md", "description": "Plain-text version of passage 1 (only in test001–test004)" },
+        { "name": "passage2.md", "description": "Plain-text version of passage 2 (only in test001–test003)" },
+        { "name": "passage3.md", "description": "Plain-text version of passage 3 (only in test001–test003)" }
+      ]
+    },
+    "filesystem_layout": "Reading/test{NNN}/(passage1.pdf | passage2.pdf | passage3.pdf | answers.json)",
+    "completeness": "All 100 tests have the 4 required files; no gaps."
+  },
+  "answers_json_schema": {
+    "description": "Each answers.json maps test metadata and links 3 passages to their question sets.",
+    "fields": {
+      "book": { "type": "string", "value": "new_content", "description": "Always 'new_content'." },
+      "test": { "type": "string", "example": "test001", "description": "Matches the folder name." },
+      "year": { "type": "number", "example": 2026, "description": "Publication year." },
+      "reading": {
+        "type": "object",
+        "description": "Contains 3 keys: passage1, passage2, passage3.",
+        "children": {
+          "passage{N}": {
+            "type": "object",
+            "fields": {
+              "type": { "type": "string", "description": "Dominant question type (informational label).", "values": ["multiple-choice", "note-completion", "true-false-not-given"] },
+              "questions": {
+                "type": "array[13]",
+                "description": "Exactly 13 question objects.",
+                "item_schema": {
+                  "q": { "type": "string", "description": "Question number (1-13)." },
+                  "a": {
+                    "type": "string",
+                    "description": "Answer: A-D for multiple-choice, a word/phrase for note-completion, TRUE/FALSE/NOT GIVEN for true-false-not-given."
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Question type for this specific question.",
+                    "values": ["multiple-choice", "note-completion", "true-false-not-given"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "question_types": {
+    "multiple-choice": {
+      "description": "Choose the correct letter A, B, C, or D.",
+      "answer_format": "Single uppercase letter (A/B/C/D)"
+    },
+    "note-completion": {
+      "description": "Complete notes with a word or short phrase from the passage.",
+      "answer_format": "Lowercase word or phrase (e.g., 'cultural norms', 'thirty', 'feedback')"
+    },
+    "true-false-not-given": {
+      "description": "Decide if statements agree with the passage.",
+      "answer_format": "TRUE, FALSE, or NOT GIVEN (uppercase)"
+    }
+  },
+  "usage": {
+    "reading_test": "Pick a test folder → read the 3 PDF passages → answer questions → check answers.json.",
+    "adding_new_test": "Create a test{NNN} folder with passage1-3.pdf + answers.json following the schema above.",
+    "counts": { "total_tests": 100, "questions_per_passage": 13, "questions_per_test": 39, "total_questions": 3900 }
+  }
+}

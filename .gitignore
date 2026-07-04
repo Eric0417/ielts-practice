@@ -1,0 +1,80 @@
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ===== Node =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# ===== Build output =====
+dist/
+build/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ===== Alembic =====
+backend/alembic/versions/*.pyc
+
+# ===== Large content files (use Render Disk or separate storage) =====
+content/PDF/
+content/raw/
+content/audio_new/
+content/past_paper/
+content/listening/
+
+# ===== Temp/admin scripts =====
+content/fix_map19.py
+content/maps_final.py
+
+# ===== Local DB =====
+*.db
+
+# ===== Claude =====
+.claude/
+
+# ===== Temp/dev artifacts =====
+backend/.vite/
+backend/frontend-tmp/
+backend/.pytest_cache/
+
+# ===== Status files (dev logs) =====
+ANSWER_TYPES.md
+COMPLETE.txt
+DELIVERY.md
+FINAL_STATUS.txt
+LOOP_DIAGNOSTIC.txt
+READY.txt
+STATUS.txt
+README_FINAL.md
+
+# ===== Backup files =====
+*.bak
+*.bak2
