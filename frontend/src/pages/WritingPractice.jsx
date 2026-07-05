@@ -6,6 +6,15 @@ import ErrorMessage from '../components/ErrorMessage'
 import RadarChart from '../components/RadarChart'
 import { ArrowLeft, Send, Clock, FileText, Award, Lightbulb, TrendingUp, AlertCircle, Check, Eye } from 'lucide-react'
 
+// In production, frontend and backend are separate Render services.
+// Asset URLs (PDFs) need the backend base URL as a prefix.
+const ASSET_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const assetUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `${ASSET_BASE}${path}`
+}
+
 export default function WritingPractice() {
   const { type, test } = useParams()  // flat layout: /practice/:type/:test
   const { apiFetch } = useAuth()
@@ -90,7 +99,7 @@ export default function WritingPractice() {
                 <span className="text-sm font-medium text-gray-500">Question Paper — {taskLabel}</span>
               </div>
               <iframe
-                src={pdfUrl}
+                src={assetUrl(pdfUrl)}
                 className="w-full"
                 style={{ height: 'calc(100vh - 180px)', minHeight: '600px' }}
                 title={`${taskLabel} PDF`}

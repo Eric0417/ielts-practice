@@ -9,6 +9,16 @@ const LABEL_MAP = {
   section1: 'Section 1', section2: 'Section 2', section3: 'Section 3', section4: 'Section 4',
 }
 
+// In production, frontend and backend are separate Render services.
+// Asset URLs (PDFs, audio) need the backend base URL as a prefix.
+// In dev, Vite proxys /content/* → localhost:8000, so empty prefix works.
+const ASSET_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const assetUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `${ASSET_BASE}${path}`
+}
+
 export default function ObjectivePractice() {
   const { type, test } = useParams()  // flat layout: /practice/:type/:test
   const { apiFetch } = useAuth()
@@ -169,7 +179,7 @@ export default function ObjectivePractice() {
                 </span>
               </div>
               <audio controls className="w-full" key={activeAudio}>
-                <source src={testDetail.audio[activeAudio]} type="audio/mpeg" />
+                <source src={assetUrl(testDetail.audio[activeAudio])} type="audio/mpeg" />
               </audio>
             </div>
           )}
@@ -203,7 +213,7 @@ export default function ObjectivePractice() {
           {activePdf && testDetail.pdfs[activePdf] && (
             <div className={`bg-white ${pdfKeys.length > 1 ? 'rounded-b-xl' : 'rounded-xl'} border border-gray-200 ${pdfKeys.length > 1 ? 'border-t-0' : ''}`}>
               <iframe
-                src={testDetail.pdfs[activePdf]}
+                src={assetUrl(testDetail.pdfs[activePdf])}
                 className="w-full h-full"
                 style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}
                 title={activePdf}
