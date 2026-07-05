@@ -49,21 +49,23 @@ class Question(Base):
     payload = Column(PayloadJSON, nullable=False)   # the full meta.json content
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    attempts = relationship("Attempt", back_populates="question", cascade="all, delete-orphan")
-
 
 class Attempt(Base):
     """Records each user submission.
 
     For reading/listening: score is raw correct count, max_score is total questions.
     For writing: score is AI band score, max_score is 9.0.
-    `detail` stores per-question results (objective) or full AI feedback JSON (writing).
+    ``detail`` stores per-question results (objective) or full AI feedback JSON (writing).
+
+    ``question_id`` stores the test identifier (e.g. ``_flat_/test001/reading/passage1``)
+    and no longer has a FK to ``questions`` because the v2 PDF-based content system
+    does not populate that table.
     """
     __tablename__ = "attempts"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    question_id = Column(String(255), ForeignKey("questions.id"), nullable=False)
+    question_id = Column(String(255), nullable=False)
     type = Column(String(50), nullable=False)   # reading / listening / writing
     score = Column(Float, nullable=False, default=0.0)
     max_score = Column(Float, nullable=False, default=0.0)
@@ -71,4 +73,3 @@ class Attempt(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="attempts")
-    question = relationship("Question", back_populates="attempts")
