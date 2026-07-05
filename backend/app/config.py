@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: str = "http://localhost:5173"
 
-    # Email (Resend.com — free tier: 100 emails/day)
-    RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "IELTS Practice <noreply@yourdomain.com>"
+    # Email — Gmail SMTP (free: 500 emails/day)
+    GMAIL_APP_PASSWORD: str = ""
+    EMAIL_FROM: str = ""
 
     @property
     def cors_origins_list(self) -> List[str]:

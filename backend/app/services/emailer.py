@@ -1,24 +1,20 @@
 """
-Email sending utility using Resend.com API.
+Email sending utility using Gmail SMTP.
 
-Resend free tier: 100 emails/day.
-API key stored in RESEND_API_KEY environment variable.
-Sender address configured via EMAIL_FROM env var (default: onboarding@resend.dev).
+Gmail free tier: 500 emails/day.
+Requires GMAIL_APP_PASSWORD env var (16-char app password from Google Account).
+Sender is configured via EMAIL_FROM env var.
 """
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 from app.config import settings
 
 
-def _get_resend():
-    """Lazy-load resend module."""
-    try:
-        import resend
-        return resend
-    except ImportError:
-        return None
-
-
 def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send an email via Resend.
+    """Send an email via Gmail SMTP.
 
     Args:
         to: Recipient email address
@@ -28,27 +24,26 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
     Returns:
         True if sent successfully, False otherwise.
     """
-    resend = _get_resend()
-    if resend is None:
-        print("[email] resend package not installed. Run: pip install resend-python")
+    app_password = settings.GMAIL_APP_PASSWORD
+    from_addr = settings.EMAIL_FROM
+
+    if not app_password or not from_addr:
+        print(f"[email] GMAIL_APP_PASSWORD or EMAIL_FROM not configured. Skipping email send.")
         print(f"[email] Would have sent to {to}: {subject}")
         return False
 
-    api_key = settings.RESEND_API_KEY
-    if not api_key:
-        print("[email] RESEND_API_KEY not configured. Skipping email send.")
-        print(f"[email] Would have sent to {to}: {subject}")
-        return False
+    # Build MIME message
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg.attach(MIMEText(html_body, "html"))
 
     try:
-        resend.api_key = api_key
-        params = {
-            "from": settings.EMAIL_FROM,
-            "to": [to],
-            "subject": subject,
-            "html": html_body,
-        }
-        resend.Emails.send(params)
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as server:
+            server.login(from_addr, app_password)
+            server.sendmail(from_addr, to, msg.as_string())
         print(f"[email] Sent to {to}: {subject}")
         return True
     except Exception as exc:
@@ -70,19 +65,15 @@ def send_verification_email(to: str, code: str) -> bool:
     return send_email(to, subject, html)
 
 
-def send_reset_email(to: str, token: str) -> bool:
-    """Send password reset link."""
-    subject = "IELTS Practice - Password Reset"
-    # Construct reset URL — in production this would be your frontend URL
-    reset_url = f"{settings.CORS_ORIGINS.split(',')[0].strip()}/login?token={token}"
-
+def send_reset_code_email(to: str, code: str) -> bool:
+    """Send password reset code (same format as verification code)."""
+    subject = "IELTS Practice - Password Reset Code"
     html = f"""<div style="max-width:480px;margin:0 auto;padding:24px;font-family:sans-serif">
 <h2 style="color:#15803d">IELTS Practice Platform</h2>
-<p>You requested a password reset. Click the button below to reset your password:</p>
-<div style="text-align:center;margin:24px 0">
-  <a href="{reset_url}" style="display:inline-block;background:#16a34a;color:white;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold">Reset Password</a>
+<p>You requested a password reset. Your reset code is:</p>
+<div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:24px 0">
+  <span style="font-size:36px;font-weight:bold;color:#166534;letter-spacing:12px">{code}</span>
 </div>
-<p style="color:#6b7280;font-size:14px">Or copy this link:<br/><code>{reset_url}</code></p>
-<p style="color:#6b7280;font-size:14px">This link expires in 30 minutes. If you didn't request this, please ignore this email.</p>
+<p style="color:#6b7280;font-size:14px">This code expires in 30 minutes. If you didn't request this, please ignore this email.</p>
 </div>"""
     return send_email(to, subject, html)

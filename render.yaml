@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ielts-backend
+    name: ielts-system-fat-backend
     runtime: python
     repo: https://github.com/Eric0417/ielts-practice
     branch: main
@@ -11,7 +11,7 @@ services:
         value: "3.11.11"
       - key: DATABASE_URL
         fromDatabase:
-          name: ielts-db
+          name: ielts-system-fat-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -25,15 +25,15 @@ services:
         value: 882946662562-bgeurim3b14pkg3n2suj8sgla4svh7aq.apps.googleusercontent.com
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: RESEND_API_KEY
+      - key: GMAIL_APP_PASSWORD
         sync: false
       - key: EMAIL_FROM
-        value: IELTS Practice <onboarding@resend.dev>
+        sync: false
       - key: CORS_ORIGINS
-        value: https://ielts-frontend.onrender.com
+        value: https://ielts-system-fat.onrender.com
 
   - type: web
-    name: ielts-frontend
+    name: ielts-system-fat
     runtime: static
     repo: https://github.com/Eric0417/ielts-practice
     branch: main
@@ -43,7 +43,7 @@ services:
       - key: NODE_VERSION
         value: "20.18.0"
       - key: VITE_API_BASE_URL
-        value: https://ielts-backend.onrender.com
+        value: https://ielts-system-fat-backend.onrender.com
       - key: VITE_GOOGLE_CLIENT_ID
         value: 882946662562-bgeurim3b14pkg3n2suj8sgla4svh7aq.apps.googleusercontent.com
     routes:
@@ -52,5 +52,5 @@ services:
         destination: /index.html
 
 databases:
-  - name: ielts-db
+  - name: ielts-system-fat-db
     plan: free

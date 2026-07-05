@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LogIn, UserPlus, Mail, Lock, AlertCircle, KeyRound, ArrowLeft } from 'lucide-react'
+import { LogIn, UserPlus, Mail, Lock, AlertCircle, KeyRound, CheckCircle2 } from 'lucide-react'
 
 export default function Login() {
   const { login } = useAuth()
@@ -16,18 +16,20 @@ export default function Login() {
   )
   const [submitting, setSubmitting] = useState(false)
 
-  // Forgot password flow
+  // Forgot password flow (6-digit code, same as verification)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
   const [forgotError, setForgotError] = useState('')
+  const [forgotSubmitting, setForgotSubmitting] = useState(false)
 
-  // Reset password flow (with token)
-  const [showResetForm, setShowResetForm] = useState(!!searchParams.get('token'))
-  const [resetToken, setResetToken] = useState(searchParams.get('token') || '')
+  // Reset password step — user enters code + new password
+  const [resetStep, setResetStep] = useState(false)
+  const [resetCode, setResetCode] = useState('')
   const [resetPassword, setResetPassword] = useState('')
   const [resetError, setResetError] = useState('')
   const [resetDone, setResetDone] = useState(false)
+  const [resetSubmitting, setResetSubmitting] = useState(false)
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -48,6 +50,7 @@ export default function Login() {
   const handleForgotPassword = async (e) => {
     e.preventDefault()
     setForgotError('')
+    setForgotSubmitting(true)
     try {
       const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: 'POST',
@@ -57,96 +60,128 @@ export default function Login() {
       const data = await res.json()
       if (res.ok) {
         setForgotSent(true)
-        // If dev mode returns the token directly, pre-fill it
-        if (data.reset_token) {
-          setResetToken(data.reset_token)
+        // Dev fallback — if Gmail not configured, code is returned directly
+        if (data.reset_code) {
+          setResetCode(data.reset_code)
         }
+        // Auto-advance to reset step
+        setResetStep(true)
       } else {
-        setForgotError(data.detail || 'Failed to send reset email')
+        setForgotError(data.detail || 'Failed to send reset code')
       }
     } catch {
       setForgotError('Network error. Please try again.')
+    } finally {
+      setForgotSubmitting(false)
     }
   }
 
   const handleResetPassword = async (e) => {
     e.preventDefault()
     setResetError('')
+    setResetSubmitting(true)
     try {
       const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: resetToken, new_password: resetPassword }),
+        body: JSON.stringify({ email: forgotEmail, code: resetCode, new_password: resetPassword }),
       })
+      const data = await res.json()
       if (res.ok) {
         setResetDone(true)
       } else {
-        const data = await res.json()
-        setResetError(data.detail || 'Reset failed')
+        setResetError(data.detail || 'Reset failed. Check your code and try again.')
       }
     } catch {
       setResetError('Network error. Please try again.')
+    } finally {
+      setResetSubmitting(false)
     }
   }
 
-  // Reset password form (from email link)
-  if (showResetForm) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 mb-4">
-              <KeyRound className="w-6 h-6 text-blue-600" />
+  // Forgot password form
+  if (showForgotPassword) {
+    // Reset step — enter code + new password
+    if (forgotSent && resetStep) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+          <div className="w-full max-w-sm">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 mb-4">
+                <KeyRound className="w-6 h-6 text-blue-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
+              <p className="text-gray-500 mt-1">
+                A 6-digit code has been sent to <strong>{forgotEmail}</strong>
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-            <p className="text-gray-500 mt-1">Enter your new password</p>
-          </div>
 
-          {resetDone ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-              <div className="text-green-600 font-medium mb-3">Password reset successfully!</div>
-              <Link to="/login" className="text-sm text-green-600 hover:text-green-700 font-medium">
-                Go to login
-              </Link>
-            </div>
-          ) : (
-            <form onSubmit={handleResetPassword} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
               {resetError && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />{resetError}
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reset Token</label>
-                <input type="text" required value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Paste reset token from email" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                <input type="password" required value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Min. 6 characters" minLength={6} />
-              </div>
-              <button type="submit"
-                className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-                Reset Password
-              </button>
-              <button type="button" onClick={() => { setShowResetForm(false); setShowForgotPassword(false) }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700">
-                Back to login
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    )
-  }
 
-  // Forgot password form
-  if (showForgotPassword) {
+              {resetDone ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    Password reset successfully!
+                  </div>
+                  <Link to="/login?reset=ok" className="block w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors text-center">
+                    Go to login
+                  </Link>
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  {resetCode && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs text-amber-700 font-medium mb-1">Dev mode — reset code:</p>
+                      <p className="text-2xl font-mono font-bold text-amber-800 tracking-[0.3em]">{resetCode}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reset Code</label>
+                    <input
+                      type="text"
+                      required
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-center tracking-[0.5em] font-mono text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="000000"
+                      maxLength={6}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                    <input type="password" required value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Min. 6 characters" minLength={6} />
+                  </div>
+
+                  <button type="submit" disabled={resetSubmitting || resetCode.length !== 6}
+                    className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+                    {resetSubmitting ? 'Resetting...' : 'Reset Password'}
+                  </button>
+
+                  <button type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); setResetStep(false); setResetDone(false); setResetError('') }}
+                    className="w-full text-sm text-gray-500 hover:text-gray-700">
+                    ← Back to login
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Forgot password form — enter email
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
@@ -155,57 +190,34 @@ export default function Login() {
               <KeyRound className="w-6 h-6 text-blue-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Forgot Password</h1>
-            <p className="text-gray-500 mt-1">Enter your email to receive a reset link</p>
+            <p className="text-gray-500 mt-1">Enter your email to receive a reset code</p>
           </div>
 
-          {forgotSent ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                Reset link sent! Check your email.
+          <form onSubmit={handleForgotPassword} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+            {forgotError && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />{forgotError}
               </div>
-              {resetToken && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-xs text-amber-700 font-medium mb-1">Dev mode — reset token:</p>
-                  <code className="text-xs text-amber-800 break-all">{resetToken}</code>
-                </div>
-              )}
-              <button onClick={() => setShowResetForm(true)}
-                className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-                I have my reset token
-              </button>
-              <button onClick={() => { setShowForgotPassword(false); setForgotSent(false) }}
-                className="w-full text-sm text-gray-500 hover:text-gray-700">
-                Back to login
-              </button>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input type="email" required value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="you@example.com" />
+              </div>
             </div>
-          ) : (
-            <form onSubmit={handleForgotPassword} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-              {forgotError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />{forgotError}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="email" required value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="you@example.com" />
-                </div>
-              </div>
-              <button type="submit"
-                className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-                Send Reset Link
-              </button>
-              <button type="button" onClick={() => setShowForgotPassword(false)}
-                className="w-full text-sm text-gray-500 hover:text-gray-700">
-                Back to login
-              </button>
-            </form>
-          )}
+            <button type="submit" disabled={forgotSubmitting}
+              className="w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+              {forgotSubmitting ? 'Sending...' : 'Send Reset Code'}
+            </button>
+            <button type="button" onClick={() => { setShowForgotPassword(false); setForgotError('') }}
+              className="w-full text-sm text-gray-500 hover:text-gray-700">
+              ← Back to login
+            </button>
+          </form>
         </div>
       </div>
     )
@@ -226,7 +238,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
           {message && (
             <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />{message}
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />{message}
             </div>
           )}
           {error && (
@@ -258,8 +270,16 @@ export default function Login() {
           </div>
 
           <div className="text-right">
-            <button type="button" onClick={() => setShowForgotPassword(true)}
-              className="text-xs text-green-600 hover:text-green-700">
+            <button type="button" onClick={() => {
+              setShowForgotPassword(true)
+              setForgotSent(false)
+              setForgotError('')
+              setResetStep(false)
+              setResetCode('')
+              setResetPassword('')
+              setResetError('')
+              setResetDone(false)
+            }} className="text-xs text-green-600 hover:text-green-700">
               Forgot password?
             </button>
           </div>

@@ -22,10 +22,10 @@ from app.schemas import (
 )
 from app.auth import (
     hash_password, verify_password, create_access_token,
-    decode_access_token, generate_reset_token,
+    decode_access_token, generate_reset_code,
     generate_verification_code,
 )
-from app.services.emailer import send_verification_email, send_reset_email
+from app.services.emailer import send_verification_email, send_reset_code_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -238,31 +238,28 @@ def forgot_password(
     body: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    """Send a password reset email.
+    """Send a 6-digit password reset code to the user's email.
 
-    Generates a reset token and returns it. In production, this would send
-    an email. For local development, the token is returned directly so the
-    user can reset their password via the /reset-password endpoint.
-
-    NOTE: In a production deployment, replace the token return with an
-    email-sending service (e.g., SendGrid, Resend, AWS SES).
+    Same flow as email verification: user receives a code, enters it
+    along with their new password on the reset page.
     """
     user = db.query(User).filter(User.email == body.email).first()
 
     # Always return success even if email not found (prevents email enumeration)
     if not user:
-        return {"message": "If the email exists, a reset link has been sent."}
+        return {"message": "If the email exists, a reset code has been sent."}
 
-    # Generate reset token (valid for 30 minutes)
-    reset_token = generate_reset_token()
-    user.reset_token = reset_token
+    code = generate_reset_code()
+    user.reset_token = code
     user.reset_token_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
     db.commit()
 
-    email_sent = send_reset_email(to=body.email, token=reset_token)
+    print(f"\n[DEV] Reset code for {body.email}: {code}\n")
+
+    email_sent = send_reset_code_email(to=body.email, code=code)
     return {
-        "message": "If the email exists, a reset link has been sent.",
-        "reset_token": reset_token if not email_sent else None,
+        "message": "If the email exists, a reset code has been sent.",
+        "reset_code": code if not email_sent else None,  # dev fallback only
     }
 
 
@@ -271,30 +268,33 @@ def reset_password(
     body: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    """Reset password using a reset token.
+    """Reset password using a 6-digit reset code + email.
 
-    The token must be valid and not expired (30 minute window).
+    The code must be valid and not expired (30 minute window).
     """
-    user = db.query(User).filter(User.reset_token == body.token).first()
+    user = db.query(User).filter(
+        User.email == body.email,
+        User.reset_token == body.code,
+    ).first()
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token.",
+            detail="Invalid code or email.",
         )
 
     # Check expiration
     if user.reset_token_expires is None or user.reset_token_expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-        # Clean up expired token
+        # Clean up expired code
         user.reset_token = None
         user.reset_token_expires = None
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reset token has expired. Please request a new one.",
+            detail="Reset code has expired. Please request a new one.",
         )
 
-    # Update password and clear reset token
+    # Update password and clear reset code
     user.password_hash = hash_password(body.new_password)
     user.reset_token = None
     user.reset_token_expires = None

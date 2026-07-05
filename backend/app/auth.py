@@ -60,9 +60,9 @@ def decode_access_token(token: str) -> Optional[dict]:
         return None
 
 
-def generate_reset_token() -> str:
-    """Generate a secure random token for password reset."""
-    return secrets.token_urlsafe(32)
+def generate_reset_code() -> str:
+    """Generate a 6-digit verification code (same format as email verification)."""
+    return str(secrets.randbelow(900000) + 100000)
 
 
 def generate_verification_code() -> str:
