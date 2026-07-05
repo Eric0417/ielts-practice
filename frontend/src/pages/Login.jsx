@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { LogIn, UserPlus, Mail, Lock, AlertCircle, KeyRound, CheckCircle2 } from 'lucide-react'
@@ -14,6 +14,15 @@ export default function Login() {
     searchParams.get('verified') === '1' ? 'Email verified! Please log in.' :
     searchParams.get('reset') === 'ok' ? 'Password reset successfully. Please log in.' : ''
   )
+
+  // Update message when searchParams change (e.g. redirect from reset flow)
+  useEffect(() => {
+    if (searchParams.get('verified') === '1') {
+      setMessage('Email verified! Please log in.')
+    } else if (searchParams.get('reset') === 'ok') {
+      setMessage('Password reset successfully. Please log in.')
+    }
+  }, [searchParams])
   const [submitting, setSubmitting] = useState(false)
 
   // Forgot password flow (6-digit code, same as verification)
@@ -129,9 +138,25 @@ export default function Login() {
                     <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                     Password reset successfully!
                   </div>
-                  <Link to="/login?reset=ok" className="block w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Reset all forgot/reset state so the login form shows
+                      setShowForgotPassword(false)
+                      setForgotSent(false)
+                      setForgotEmail('')
+                      setResetStep(false)
+                      setResetCode('')
+                      setResetPassword('')
+                      setResetDone(false)
+                      setResetError('')
+                      setForgotError('')
+                      navigate('/login?reset=ok', { replace: true })
+                    }}
+                    className="block w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors text-center"
+                  >
                     Go to login
-                  </Link>
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-4">
