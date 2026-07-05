@@ -4,11 +4,13 @@ FastAPI application entry point.
 Starts up, registers all routers, configures CORS, and
 triggers the content loader to sync meta.json files into the DB.
 """
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -32,6 +34,19 @@ async def lifespan(app: FastAPI):
 
     yield
     # Shutdown: nothing to clean up for now
+
+
+# Global exception handler — return actual error detail in responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": str(exc),
+            "type": type(exc).__name__,
+            "traceback": traceback.format_exc(),
+        },
+    )
 
 
 # -------------------------------------------------------
