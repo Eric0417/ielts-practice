@@ -36,19 +36,6 @@ async def lifespan(app: FastAPI):
     # Shutdown: nothing to clean up for now
 
 
-# Global exception handler — return actual error detail in responses
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": str(exc),
-            "type": type(exc).__name__,
-            "traceback": traceback.format_exc(),
-        },
-    )
-
-
 # -------------------------------------------------------
 # Create the app
 # -------------------------------------------------------
@@ -67,6 +54,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler — return actual error detail in responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": str(exc),
+            "type": type(exc).__name__,
+            "traceback": traceback.format_exc(),
+        },
+    )
 
 # Include API routers
 app.include_router(auth.router)
