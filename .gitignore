@@ -49,8 +49,7 @@ content/raw/
 content/audio_new/
 content/past_paper/
 content/listening/
-
-# ===== Temp/admin scripts =====
+content/scripts/
 content/fix_map19.py
 content/maps_final.py
 

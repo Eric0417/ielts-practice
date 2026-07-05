@@ -24,7 +24,7 @@ from app.routers import v2_content
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create tables (for dev convenience; production uses Alembic)
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, checkfirst=True)
 
     # Validate content directories exist (v2 PDF-driven system)
     from app.services.content_scanner import validate_content_dirs
