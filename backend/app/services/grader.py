@@ -3,10 +3,11 @@ IELTS Writing grader — sends the user's essay to the Poe API (OpenAI-compatibl
 and parses the structured JSON response.
 
 For Task 1: a PDF image is REQUIRED — the model must see the chart/graph/diagram.
-For Task 2: a PDF image is optional (the prompt text is usually sufficient).
+For Task 2: a PDF image is included when available — the model sees the question paper
+that the student was responding to.
 
-The prompt is designed to produce conservative, defensible IELTS band scores
-anchored to the official public band descriptors.
+Both tasks: the question text is extracted from the PDF via PyMuPDF and included
+so the AI knows exactly what question the student was answering.
 """
 
 from __future__ import annotations
@@ -328,8 +329,9 @@ def build_user_prompt_with_image(
 
     Falls back to text-only if the PDF cannot be converted.
 
-    For Task 1, the PDF image is REQUIRED — an exception is raised if
-    it cannot be attached.
+    For Task 1, the PDF image is REQUIRED — the model must see the
+    chart/graph/diagram. For Task 2, the PDF image is strongly preferred
+    (it shows the question the student was responding to).
     """
     content = build_user_prompt(task, prompt_text, word_minimum, essay, feedback_language)
 
@@ -338,7 +340,7 @@ def build_user_prompt_with_image(
     if pdf_path:
         b64_url = _pdf_page_to_base64_png(pdf_path, page=0)
         if b64_url:
-            # Insert the image before the text
+            # Insert the image before the text (the image shows the question paper)
             content.insert(0, {
                 "type": "image_url",
                 "image_url": {"url": b64_url, "detail": "high"},
@@ -350,7 +352,7 @@ def build_user_prompt_with_image(
                 f"The PDF file could not be converted to an image: {pdf_path}"
             )
 
-    # No image available
+    # For Task 1, an image is mandatory (the model needs to see the chart/graph)
     if is_task1:
         raise ValueError(
             "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "

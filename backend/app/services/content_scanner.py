@@ -809,25 +809,35 @@ def get_test_detail(book: str, test: str, test_type: str, passage: str = "") -> 
 
 
 def _load_writing_prompt(book: str, test: str, task: str) -> str | None:
-    """Load writing prompt from raw structured_final MD files."""
-    from pathlib import Path as P
-    book_dir = book if book != FLAT_BOOK_ID else "cambridge20"
-    structured_base = PROJECT_ROOT / "content" / "raw" / "structured_final" / book_dir / test / "writing"
-    md_path = structured_base / f"{task}.md"
-    if md_path.is_file():
-        try:
-            return md_path.read_text(encoding="utf-8").strip()
-        except OSError:
-            pass
-    return None
+    """Extract the writing task prompt from the PDF file using PyMuPDF."""
+    pdf_path = _resolve_pdf_path(book, test, task)
+    if not pdf_path:
+        return None
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(pdf_path)
+        text_parts: list[str] = []
+        for page in doc:
+            page_text = page.get_text()
+            if page_text.strip():
+                text_parts.append(page_text.strip())
+        doc.close()
+        full_text = "\n\n".join(text_parts).strip()
+        return full_text if full_text else None
+    except Exception:
+        return None
 
 
 def get_writing_prompt(book: str, test: str, task: str) -> str:
+    """Return the writing task prompt text extracted from the task PDF.
+
+    Falls back to a generic description if PDF text extraction fails.
+    """
     text = _load_writing_prompt(book, test, task)
     if text:
         return text
     task_label = "Task 1" if task == "task1" else "Task 2"
-    return f"IELTS Writing {task_label}. Please refer to the question PDF for the complete prompt."
+    return f"IELTS Writing {task_label}. Please refer to the attached question paper image for the complete prompt."
 
 
 def _resolve_pdf_path(book: str, test: str, task: str) -> str | None:
