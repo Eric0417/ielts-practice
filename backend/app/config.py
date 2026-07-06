@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: str = "http://localhost:5173"
 
-    # Email — Gmail SMTP (free: 500 emails/day)
+    # Email — Resend API (primary, better deliverability to all addresses)
+    RESEND_API_KEY: str = ""
+    # Email — Gmail SMTP (fallback, 500 emails/day)
     GMAIL_APP_PASSWORD: str = ""
     EMAIL_FROM: str = ""
 

@@ -1,9 +1,13 @@
 """
-Email sending utility using Gmail SMTP.
+Email sending utility.
 
-Gmail free tier: 500 emails/day.
-Requires GMAIL_APP_PASSWORD env var (16-char app password from Google Account).
-Sender is configured via EMAIL_FROM env var.
+Primary: Resend API (https://resend.com) — best deliverability to all email providers.
+Fallback: Gmail SMTP — only works reliably for Gmail-to-Gmail internal delivery.
+
+Configuration priority:
+1. RESEND_API_KEY  → use Resend (recommended, delivers to any address)
+2. GMAIL_APP_PASSWORD + EMAIL_FROM → use Gmail SMTP (fallback)
+3. Neither configured → console print (dev mode)
 """
 import smtplib
 import ssl
@@ -13,26 +17,39 @@ from email.mime.multipart import MIMEMultipart
 from app.config import settings
 
 
-def send_email(to: str, subject: str, html_body: str) -> bool:
-    """Send an email via Gmail SMTP.
+def _send_via_resend(to: str, subject: str, html_body: str) -> bool:
+    """Send email via Resend API. Best deliverability to all email providers."""
+    try:
+        import resend
+    except ImportError:
+        print("[email] resend package not installed. Falling back.")
+        return False
 
-    Args:
-        to: Recipient email address
-        subject: Email subject line
-        html_body: HTML content of the email
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        params = {
+            "from": settings.EMAIL_FROM,
+            "to": [to],
+            "subject": subject,
+            "html": html_body,
+        }
+        resend.Emails.send(params)
+        print(f"[email:resend] Sent to {to}: {subject}")
+        return True
+    except Exception as exc:
+        print(f"[email:resend] Failed to send to {to}: {exc}")
+        return False
 
-    Returns:
-        True if sent successfully, False otherwise.
-    """
+
+def _send_via_gmail(to: str, subject: str, html_body: str) -> bool:
+    """Send email via Gmail SMTP. May have delivery issues to non-Gmail addresses."""
     app_password = settings.GMAIL_APP_PASSWORD
     from_addr = settings.EMAIL_FROM
 
     if not app_password or not from_addr:
-        print(f"[email] GMAIL_APP_PASSWORD or EMAIL_FROM not configured. Skipping email send.")
-        print(f"[email] Would have sent to {to}: {subject}")
+        print(f"[email:gmail] GMAIL_APP_PASSWORD or EMAIL_FROM not configured. Skipping.")
         return False
 
-    # Build MIME message
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = from_addr
@@ -44,11 +61,37 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as server:
             server.login(from_addr, app_password)
             server.sendmail(from_addr, to, msg.as_string())
-        print(f"[email] Sent to {to}: {subject}")
+        print(f"[email:gmail] Sent to {to}: {subject}")
         return True
     except Exception as exc:
-        print(f"[email] Failed to send to {to}: {exc}")
+        print(f"[email:gmail] Failed to send to {to}: {exc}")
         return False
+
+
+def send_email(to: str, subject: str, html_body: str) -> bool:
+    """Send an email. Tries Resend first, falls back to Gmail SMTP.
+
+    Args:
+        to: Recipient email address
+        subject: Email subject line
+        html_body: HTML content of the email
+
+    Returns:
+        True if sent successfully, False otherwise.
+    """
+    # 1. Try Resend first (best deliverability)
+    if settings.RESEND_API_KEY and settings.EMAIL_FROM:
+        if _send_via_resend(to, subject, html_body):
+            return True
+
+    # 2. Fall back to Gmail SMTP
+    if settings.GMAIL_APP_PASSWORD and settings.EMAIL_FROM:
+        if _send_via_gmail(to, subject, html_body):
+            return True
+
+    # 3. Nothing configured — dev fallback
+    print(f"[email] No email provider configured. Would have sent to {to}: {subject}")
+    return False
 
 
 def send_verification_email(to: str, code: str) -> bool:
