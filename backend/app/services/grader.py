@@ -3,11 +3,7 @@ IELTS Writing grader — sends the user's essay to the Poe API (OpenAI-compatibl
 and parses the structured JSON response.
 
 For Task 1: a PDF image is REQUIRED — the model must see the chart/graph/diagram.
-For Task 2: a PDF image is included when available — the model sees the question paper
-that the student was responding to.
-
-Both tasks: the question text is extracted from the PDF via PyMuPDF and included
-so the AI knows exactly what question the student was answering.
+For Task 2: the question text is used directly (no image needed), saving tokens.
 """
 
 from __future__ import annotations
@@ -122,11 +118,13 @@ def _build_system_prompt() -> str:
     """Build the system prompt for IELTS writing grading.
 
     This prompt is anchored to the official public band descriptors and designed
-    to produce conservative, defensible scores — never inflated.
+    to produce scores that are accurate, consistent, and faithfully aligned with
+    what a trained IELTS examiner would award.
     """
     return """You are an experienced IELTS Writing examiner trained on the official public
-band descriptors. Your goal is to produce band scores that are conservative,
-consistent, and defensible against the descriptors — never inflated.
+band descriptors. Your goal is to produce band scores that are accurate,
+consistent, and faithfully aligned with what a trained IELTS examiner would
+award.
 
 ## YOUR TASK
 Grade the student's essay strictly against the official IELTS Writing band
@@ -140,6 +138,8 @@ impressions.
 Use ONLY the descriptor set that matches the task type given in the user prompt.
 
 TASK 1 — Task Achievement anchors:
+- Band 4: Attempts the task but does not cover all key features; format may be
+  inappropriate; details are mostly mechanical; no clear overview.
 - Band 5: Recounts detail mechanically; no clear overview; may focus on detail
   with no clear selection of key features; may have inaccuracies in data.
 - Band 6: Presents an overview with information appropriately selected; adequately
@@ -148,8 +148,22 @@ TASK 1 — Task Achievement anchors:
   highlights key features but could be more fully extended.
 - Band 8: Covers requirements sufficiently; skilfully selects and highlights key
   features; clear, well-organised overview.
+- Band 9: Fully satisfies all task requirements; clear, comprehensive overview;
+  all key features are fully and appropriately developed.
+
+TASK 1 chart-type awareness:
+- Trend graphs (line/bar): expect overview of overall direction + key features
+  (peaks, troughs, crossovers, periods of stability).
+- Comparative charts (pie/table/bar): expect overview of ranking/grouping; not
+  just listing each category one by one.
+- Maps: expect description of changes over time (new, removed, expanded, replaced)
+  with clear spatial organisation.
+- Process diagrams: expect sequential description with appropriate sequencing
+  language; overview = number of stages + beginning/end points.
 
 TASK 2 — Task Response anchors:
+- Band 4: Responds to the task only minimally; position is unclear; few ideas,
+  largely undeveloped; may repeat prompt or rely on memorised material.
 - Band 5: Addresses the task only partially; position expressed but not always
   clear; some main ideas but underdeveloped/unclear; may over-generalise.
 - Band 6: Addresses all parts of the task, though some more than others; relevant
@@ -159,8 +173,13 @@ TASK 2 — Task Response anchors:
   ideas, though there may be a tendency to over-generalise or lack focus.
 - Band 8: Sufficiently addresses all parts; well-developed response with relevant,
   extended and supported ideas; clear position throughout.
+- Band 9: Fully addresses all parts of the task with a clear, fully developed
+  position; ideas are relevant, extended, and well-supported throughout.
 
 ### 2. Coherence & Cohesion
+- Band 4: Information and ideas are arranged coherently at a basic level; limited
+  range of cohesive devices; may be repetitive; paragraphing may be absent or
+  confusing.
 - Band 5: Some organisation but no clear progression; inadequate/inaccurate/over-use
   of cohesive devices; may be repetitive; paragraphing may be inadequate/missing.
 - Band 6: Coherent arrangement with clear overall progression; effective but
@@ -171,8 +190,12 @@ TASK 2 — Task Response anchors:
   paragraph.
 - Band 8: Sequences information logically; manages cohesion well; uses paragraphing
   sufficiently and appropriately.
+- Band 9: Uses cohesion in such a way that it attracts no attention; skilfully
+  manages paragraphing; ideas flow naturally with sophisticated referencing.
 
 ### 3. Lexical Resource
+- Band 4: Basic vocabulary adequate for simple information; significant errors in
+  word choice/spelling cause strain for the reader.
 - Band 5: Limited but minimally adequate range; noticeable errors in spelling/word
   formation that may cause some difficulty.
 - Band 6: Adequate range for the task; attempts less common vocabulary with some
@@ -182,8 +205,12 @@ TASK 2 — Task Response anchors:
   items with awareness of style/collocation; occasional errors.
 - Band 8: Wide range used fluently and flexibly; skilful use of uncommon items;
   occasional inaccuracies in word choice/collocation only.
+- Band 9: Full flexibility and precision in word choice; natural and sophisticated
+  control of lexical features; rare minor errors ("slips") only.
 
 ### 4. Grammatical Range & Accuracy
+- Band 4: Very limited range of structures; subordinate clauses are rare; frequent
+  errors that cause difficulty for the reader.
 - Band 5: Limited range of structures; complex sentences less accurate than simple
   ones; frequent errors causing some difficulty for the reader.
 - Band 6: Mix of simple and complex forms; some errors in grammar/punctuation but
@@ -192,6 +219,29 @@ TASK 2 — Task Response anchors:
   though some errors remain.
 - Band 8: Wide range of structures; majority error-free; occasional non-systematic
   errors/inappropriacies.
+- Band 9: Wide range of structures with full flexibility and accuracy; rare minor
+  errors only; meaning is precise and nuanced.
+
+## CALIBRATION EXAMPLE
+
+This is roughly Band 6.0 for Task 2. Use it as a calibration anchor:
+
+Essay: "In modern society, technology is very important for education. Many schools
+now use computers and tablets for teaching. I agree that technology has many benefits.
+First, students can find information easily on internet. They don't need to go library
+and search many books. Second, technology make learning more interesting. Students can
+watch videos and play educational games. However, there are some disadvantages. Too much
+screen time is not good for eyes. Also some students play games instead of study. In
+conclusion, technology is good for education but we must use it carefully. Schools
+should balance technology and traditional methods."
+
+Expected scores for this sample: TR 6.0 (addresses both sides but ideas are thin
+and generalised; conclusion is present but underdeveloped), CC 6.0 (clear progression
+but mechanical cohesion — "First"/"Second"/"However"/"In conclusion"; paragraphing
+absent), LR 5.5 (adequate for simple ideas but limited range; some errors: "make"
+for "makes", "on internet" missing article, "study" for "studying"), GR 6.0 (mix of
+simple and complex; some error-free sentences but also errors in subject-verb
+agreement and articles).
 
 ## LENGTH GUIDANCE (do NOT apply a fixed penalty)
 Do NOT mechanically subtract a fixed band for under-length essays. Instead, judge
@@ -202,9 +252,9 @@ proportionally to how far below the minimum the essay is.
 
 ## OVERALL BAND CALCULATION
 1. Compute the arithmetic mean of the four criterion bands.
-2. Round to the nearest half band. Official rounding rule:
-   - If the mean ends in .25 → round UP to the next .5  (e.g., 6.25 → 6.5)
-   - If the mean ends in .75 → round UP to the next whole (e.g., 6.75 → 7.0)
+2. Round to the nearest half band using the official IELTS rounding rule:
+   - Mean ends in .25 → round UP to the next .5  (e.g., 6.25 → 6.5)
+   - Mean ends in .75 → round UP to the next whole  (e.g., 6.75 → 7.0)
    - Otherwise round to the nearest 0.5 in the normal way.
    Examples: 6.125 → 6.0; 6.375 → 6.5; 6.625 → 6.5; 6.875 → 7.0.
 
@@ -245,8 +295,10 @@ Output ONLY a valid JSON object. NO markdown fences, NO text outside the JSON.
    No generic platitudes.
 3. Provide 3–6 corrected_examples. The "original" field MUST be copied verbatim
    from the essay (identical wording, spelling, capitalisation, punctuation).
-   NEVER invent or paraphrase the original. If fewer than 3 correctable sentences
-   exist, provide as many as genuinely exist.
+   NEVER invent or paraphrase the original. If you cannot recall a sentence
+   verbatim, quote the closest identifiable fragment (e.g., "...the government
+   should to invest...") rather than fabricating. If fewer than 3 genuinely
+   correctable sentences exist, provide as many as genuinely exist.
 4. Keep the JSON key "task_response" for BOTH task types (it maps to Task
    Achievement for Task 1 in the UI). Do not rename keys.
 5. Be internally consistent: the overall_band must match the rounded mean of the
@@ -264,20 +316,21 @@ def build_user_prompt(
     word_minimum: int,
     essay: str,
     feedback_language: str = "English",
-) -> list[dict]:
-    """Build the user message content for the grading request.
+) -> str:
+    """Build the user prompt text for the grading request.
 
-    Returns a multimodal content list. If the prompt_text is available,
-    it is included as text. Optionally a PDF image can be attached for
-    vision-capable models.
+    Returns a plain text string. For Task 1, an image is appended separately
+    via build_user_prompt_with_image().
     """
     task_label = "Task 1" if task == "task1" else "Task 2"
     task_desc = (
-        "Task 1 (Academic): Describe, summarise or explain information from a graph, table, chart or diagram. "
-        "Minimum 150 words. Key features: overview, data description, comparisons, no personal opinion."
+        "Task 1 (Academic): Describe, summarise or explain information from a graph, "
+        "table, chart or diagram. Minimum 150 words. Key features: overview, data "
+        "description, comparisons, no personal opinion."
         if task == "task1"
-        else "Task 2 (Academic/General): Write an essay in response to a point of view, argument or problem. "
-        "Minimum 250 words. Key features: clear position, developed ideas, logical argument, conclusion."
+        else "Task 2 (Academic/General): Write an essay in response to a point of view, "
+        "argument or problem. Minimum 250 words. Key features: clear position, developed "
+        "ideas, logical argument, conclusion."
     )
 
     actual_words = len(essay.split())
@@ -289,7 +342,7 @@ def build_user_prompt(
         else ""
     )
 
-    user_text = f"""Please grade this IELTS {task_label} essay.
+    return f"""Please grade this IELTS {task_label} essay.
 
 ## TASK TYPE
 {task_desc}
@@ -302,19 +355,13 @@ Minimum required: {word_minimum} words
 Student's word count: {actual_words} words{under_length_note}
 
 ## QUESTION PROMPT
-{prompt_text if prompt_text else 'See the attached image of the question paper.'}
+(Note: the question text below may contain minor formatting artifacts from
+PDF extraction. Focus on the semantic content, not formatting issues.)
+
+{prompt_text if prompt_text else 'No question text available.'}
 
 ## STUDENT'S ESSAY
-{essay}
-
-## GRADING INSTRUCTIONS
-Evaluate against the band descriptors provided in the system prompt. For each
-criterion, cite exact words/sentences from the essay and name the descriptor
-feature that fixes the band. Then compute the overall band using the official
-rounding rule."""
-
-    content: list[dict] = [{"type": "text", "text": user_text}]
-    return content
+{essay}"""
 
 
 def build_user_prompt_with_image(
@@ -325,41 +372,41 @@ def build_user_prompt_with_image(
     feedback_language: str = "English",
     pdf_path: str | None = None,
 ) -> list[dict]:
-    """Build a multimodal prompt that includes the PDF as a base64 image.
+    """Build a multimodal prompt.
 
-    Falls back to text-only if the PDF cannot be converted.
+    For Task 1: the PDF image is REQUIRED (the model must see the chart/graph).
+    For Task 2: uses text-only by default (saves tokens); image is skipped
+    even if a PDF path is provided.
 
-    For Task 1, the PDF image is REQUIRED — the model must see the
-    chart/graph/diagram. For Task 2, the PDF image is strongly preferred
-    (it shows the question the student was responding to).
+    Returns a multimodal content list (text + optional image for Task 1).
     """
-    content = build_user_prompt(task, prompt_text, word_minimum, essay, feedback_language)
-
+    user_text = build_user_prompt(task, prompt_text, word_minimum, essay, feedback_language)
+    content: list[dict] = [{"type": "text", "text": user_text}]
     is_task1 = task == "task1"
 
+    if not is_task1:
+        # Task 2: text-only, no image needed
+        return content
+
+    # Task 1: PDF image is REQUIRED
     if pdf_path:
         b64_url = _pdf_page_to_base64_png(pdf_path, page=0)
         if b64_url:
-            # Insert the image before the text (the image shows the question paper)
             content.insert(0, {
                 "type": "image_url",
                 "image_url": {"url": b64_url, "detail": "high"},
             })
             return content
-        elif is_task1:
+        else:
             raise ValueError(
                 "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "
                 f"The PDF file could not be converted to an image: {pdf_path}"
             )
 
-    # For Task 1, an image is mandatory (the model needs to see the chart/graph)
-    if is_task1:
-        raise ValueError(
-            "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "
-            "No PDF file was found for this task. Please ensure the task PDF exists."
-        )
-
-    return content
+    raise ValueError(
+        "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "
+        "No PDF file was found for this task. Please ensure the task PDF exists."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -425,9 +472,9 @@ def grade_essay(
                 or a fallback).
         word_minimum: Expected minimum word count (150 or 250).
         essay: The user's submitted essay.
-        pdf_path: Optional path to the task PDF, which will be converted to
-                  an image and attached for vision-capable models.
-                  For Task 1, a PDF image is REQUIRED.
+        pdf_path: Optional path to the task PDF. For Task 1, a PDF image is
+                  REQUIRED — the model must see the chart/graph. For Task 2,
+                  the image is skipped (text-only saves tokens).
         feedback_language: Language for examiner feedback (e.g. "English",
                            "Traditional Chinese"). Auto-detected from essay
                            if not provided.
