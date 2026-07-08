@@ -4,13 +4,26 @@ Email sending utility using Gmail SMTP.
 Gmail free tier: 500 emails/day.
 Requires GMAIL_APP_PASSWORD env var (16-char app password from Google Account).
 Sender is configured via EMAIL_FROM env var.
+
+Important: Gmail SMTP requires that EMAIL_FROM matches the Gmail account
+used for authentication (the same account that generated the app password).
+Gmail will rewrite the From header to the authenticated account regardless.
 """
 import smtplib
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import parseaddr
 
 from app.config import settings
+
+
+def _extract_email(address: str) -> str:
+    """Extract bare email address from 'Name <email>' format."""
+    if not address:
+        return ""
+    name, addr = parseaddr(address)
+    return addr or address
 
 
 def send_email(to: str, subject: str, html_body: str) -> bool:
@@ -26,10 +39,13 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
     """
     app_password = settings.GMAIL_APP_PASSWORD
     from_addr = settings.EMAIL_FROM
+    # Gmail SMTP login requires bare email, not "Name <email>"
+    login_email = _extract_email(from_addr)
 
     if not app_password or not from_addr:
         print(f"[email] GMAIL_APP_PASSWORD or EMAIL_FROM not configured. Skipping email send.")
         print(f"[email] Would have sent to {to}: {subject}")
+        print(f"[email] Verification code would be printed in server logs.")
         return False
 
     # Build MIME message
@@ -42,10 +58,23 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
     try:
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as server:
-            server.login(from_addr, app_password)
+            server.login(login_email, app_password)
+            # Gmail SMTP will rewrite envelope-from to the authenticated user,
+            # regardless of what we pass here. This is normal.
             server.sendmail(from_addr, to, msg.as_string())
         print(f"[email] Sent to {to}: {subject}")
         return True
+    except smtplib.SMTPAuthenticationError as exc:
+        print(f"[email] SMTP AUTH FAILED for {login_email}: {exc}")
+        print(f"[email] Make sure EMAIL_FROM matches the Gmail account that generated GMAIL_APP_PASSWORD.")
+        return False
+    except smtplib.SMTPRecipientsRefused as exc:
+        print(f"[email] Recipient refused for {to}: {exc}")
+        return False
+    except smtplib.SMTPSenderRefused as exc:
+        print(f"[email] Sender refused ({from_addr}): {exc}")
+        print(f"[email] Gmail SMTP requires the sender to match the authenticated account.")
+        return False
     except Exception as exc:
         print(f"[email] Failed to send to {to}: {exc}")
         return False
