@@ -21,6 +21,8 @@ services:
         sync: false
       - key: POE_MODEL
         value: gpt-5.4-nano
+      - key: POE_VISION_MODEL
+        value: gemini-3.5-flash
       - key: GOOGLE_CLIENT_ID
         value: 882946662562-bgeurim3b14pkg3n2suj8sgla4svh7aq.apps.googleusercontent.com
       - key: GOOGLE_CLIENT_SECRET

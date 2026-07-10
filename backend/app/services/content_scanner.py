@@ -809,29 +809,125 @@ def get_test_detail(book: str, test: str, test_type: str, passage: str = "") -> 
 
 
 def _load_writing_prompt(book: str, test: str, task: str) -> str | None:
-    """Extract the writing task prompt from the PDF file using PyMuPDF."""
+    """Extract the writing task prompt by combining PDF text + JSON metadata.
+
+    For Task 2: PDF text extraction usually captures the full essay question.
+                JSON metadata provides scoring criteria as supplementary guidance.
+    For Task 1: The PDF contains a chart/graph/diagram as an embedded image.
+                Text extraction only gets generic instructions. JSON metadata
+                provides chart_type and key features expected in the response.
+
+    Priority:
+    1. PDF text (has the actual question for Task 2; generic instructions for Task 1)
+    2. JSON metadata (scoring criteria, chart_type, key features)
+    3. Combined prompt
+    """
+    root = _content_root("writing")
+    if _is_flat("writing"):
+        base = root / "Writing" / test
+    else:
+        base = root / "Writing" / book / test
+
+    # --- Load PDF text ---
+    pdf_text: str | None = None
     pdf_path = _resolve_pdf_path(book, test, task)
-    if not pdf_path:
-        return None
-    try:
-        import fitz  # PyMuPDF
-        doc = fitz.open(pdf_path)
-        text_parts: list[str] = []
-        for page in doc:
-            page_text = page.get_text()
-            if page_text.strip():
-                text_parts.append(page_text.strip())
-        doc.close()
-        full_text = "\n\n".join(text_parts).strip()
-        return full_text if full_text else None
-    except Exception:
-        return None
+    if pdf_path:
+        try:
+            import fitz
+            doc = fitz.open(pdf_path)
+            text_parts: list[str] = []
+            for page in doc:
+                page_text = page.get_text()
+                if page_text.strip():
+                    text_parts.append(page_text.strip())
+            doc.close()
+            raw = "\n\n".join(text_parts).strip()
+            if raw:
+                pdf_text = raw
+        except Exception:
+            pass
+
+    # --- Load JSON metadata ---
+    json_data: dict = {}
+    answers_json = base / f"{task}_answers.json"
+    if answers_json.is_file():
+        try:
+            json_data = json.loads(answers_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # --- Build combined prompt ---
+    parts: list[str] = []
+
+    # 1. Add the actual question text (from PDF, which for Task 2 has the real question)
+    if pdf_text:
+        # Clean up PDF text: remove generic IELTS header lines that appear in every PDF
+        cleaned = pdf_text
+        # Remove "IELTS Writing Task X" header if present
+        cleaned = re.sub(r'^IELTS Writing Task [12]\s*\n?', '', cleaned.strip())
+        cleaned = cleaned.strip()
+        if cleaned:
+            parts.append(cleaned)
+
+    # 2. Add JSON task_description if it adds value beyond the PDF text
+    json_desc = json_data.get("task_description", "").strip()
+    if json_desc and json_desc not in ("Write an essay in response to the given topic. Give reasons for your answer and include relevant examples from your own knowledge or experience.",
+                                        "Summarize the information from the line graph and make comparisons where relevant."):
+        # Only add if it's a specific description, not the generic template
+        if not pdf_text or json_desc not in pdf_text:
+            parts.append(f"\nTask description: {json_desc}")
+
+    # 3. Add chart type for Task 1
+    chart_type = json_data.get("chart_type", "").strip()
+    if chart_type and chart_type != "N/A":
+        chart_labels = {
+            "line-graph": "Line Graph",
+            "bar-chart": "Bar Chart",
+            "pie-chart": "Pie Chart",
+            "table": "Table",
+            "map": "Map",
+            "diagram": "Diagram/Process",
+            "mixed": "Mixed Charts (multiple chart types)",
+        }
+        parts.insert(0, f"Chart/Diagram Type: {chart_labels.get(chart_type, chart_type)}")
+
+    # 4. Add scoring criteria as examiner guidance
+    scoring = json_data.get("scoring_criteria", {})
+    if scoring:
+        criteria_lines: list[str] = []
+        if isinstance(scoring, dict):
+            for criterion, expectation in scoring.items():
+                label = criterion.replace("_", " ").title()
+                criteria_lines.append(f"  • {label}: {expectation}")
+        if criteria_lines:
+            parts.append("\nExpected quality benchmarks (for examiner reference):")
+            parts.extend(criteria_lines)
+
+    # 5. Add model answer summary if it provides actual content (not just writing instructions)
+    model_answer = json_data.get("model_answer", "")
+    if model_answer and isinstance(model_answer, str) and len(model_answer.strip()) > 50:
+        # Skip if it's just generic writing instructions (starts with "[Model answer:")
+        if not model_answer.strip().startswith("[Model answer:"):
+            parts.append(f"\nModel answer (for examiner reference):\n{model_answer.strip()[:2000]}")
+
+    if parts:
+        return "\n\n".join(parts)
+
+    # Ultimate fallback: return raw PDF text
+    if pdf_text:
+        return pdf_text
+
+    return None
 
 
 def get_writing_prompt(book: str, test: str, task: str) -> str:
-    """Return the writing task prompt text extracted from the task PDF.
+    """Return the writing task prompt text.
 
-    Falls back to a generic description if PDF text extraction fails.
+    Priority: JSON metadata (task*_answers.json), then PDF text extraction,
+    then a generic fallback.
+
+    For Task 1, the JSON metadata is critical — the PDF text layer only
+    contains generic instructions because the chart is an embedded image.
     """
     text = _load_writing_prompt(book, test, task)
     if text:

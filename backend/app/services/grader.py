@@ -134,6 +134,19 @@ descriptors (public version) for the specified task type (Task 1 or Task 2).
 Always justify each band by referring to descriptor-level features, not vague
 impressions.
 
+## CRITICAL — GRADE AGAINST THE SPECIFIC QUESTION
+You MUST read and understand the EXAM QUESTION provided in the user message
+BEFORE reading the essay. Every score you assign — especially Task Achievement/
+Response — depends entirely on whether the essay answers THAT question, not just
+whether it follows IELTS writing conventions.
+
+- If the essay ignores key parts of the question → Task Response ≤ 4
+- If the essay is completely off-topic → Task Response ≤ 2
+- If the essay is generic/vague with no reference to the specific question
+  details → Task Response ≤ 5
+- Do NOT give a 6+ for Task Response unless the essay addresses ALL parts of
+  the question with relevant, developed ideas.
+
 ## THE FOUR CRITERIA (each 0–9, in 0.5 increments)
 
 ### 1. Task Achievement (Task 1) / Task Response (Task 2)
@@ -267,9 +280,8 @@ def build_user_prompt(
 ) -> list[dict]:
     """Build the user message content for the grading request.
 
-    Returns a multimodal content list. If the prompt_text is available,
-    it is included as text. Optionally a PDF image can be attached for
-    vision-capable models.
+    The question prompt is placed FIRST so the AI knows exactly what task
+    the student was responding to before it reads the essay.
     """
     task_label = "Task 1" if task == "task1" else "Task 2"
     task_desc = (
@@ -289,7 +301,13 @@ def build_user_prompt(
         else ""
     )
 
-    user_text = f"""Please grade this IELTS {task_label} essay.
+    has_question = prompt_text and prompt_text.strip() and "please refer to the attached" not in prompt_text.lower()
+
+    if has_question:
+        user_text = f"""Grade this IELTS {task_label} essay AGAINST THE SPECIFIC QUESTION SHOWN BELOW.
+
+## THE EXAM QUESTION (the student was asked to answer THIS)
+{prompt_text}
 
 ## TASK TYPE
 {task_desc}
@@ -301,17 +319,43 @@ Write all feedback in: {feedback_language}
 Minimum required: {word_minimum} words
 Student's word count: {actual_words} words{under_length_note}
 
-## QUESTION PROMPT
-{prompt_text if prompt_text else 'See the attached image of the question paper.'}
+## STUDENT'S ESSAY
+{essay}
+
+## CRITICAL GRADING INSTRUCTIONS
+1. **Task Achievement/Response**: Your score MUST be based on how well the essay
+   answers THE SPECIFIC QUESTION above. If the essay is off-topic, generic, or
+   ignores key parts of the question, the Task Achievement/Response band MUST be
+   ≤ 3. Check that the essay actually addresses the question's topic, not just
+   follows the IELTS essay structure.
+2. For each criterion, cite EXACT words/sentences from the essay and name the
+   band descriptor feature that fixes the score.
+3. Be internally consistent: if you give low Task Response, the comment must
+   explain what the question asked for vs. what the essay delivered.
+4. Output ONLY a valid JSON object."""
+    else:
+        user_text = f"""Grade this IELTS {task_label} essay. The question prompt could not be extracted from the PDF, so refer to the attached image for the full question.
+
+## TASK TYPE
+{task_desc}
+
+## FEEDBACK LANGUAGE
+Write all feedback in: {feedback_language}
+
+## WORD COUNT
+Minimum required: {word_minimum} words
+Student's word count: {actual_words} words{under_length_note}
 
 ## STUDENT'S ESSAY
 {essay}
 
-## GRADING INSTRUCTIONS
-Evaluate against the band descriptors provided in the system prompt. For each
-criterion, cite exact words/sentences from the essay and name the descriptor
-feature that fixes the band. Then compute the overall band using the official
-rounding rule."""
+## CRITICAL GRADING INSTRUCTIONS
+1. **IMPORTANT**: If you received an image of the question paper, your Task
+   Achievement/Response score MUST be based on what the image shows. Check that
+   the essay addresses the actual question, not a different topic.
+2. For each criterion, cite EXACT words/sentences from the essay and name the
+   band descriptor feature that fixes the score.
+3. Output ONLY a valid JSON object."""
 
     content: list[dict] = [{"type": "text", "text": user_text}]
     return content
@@ -329,9 +373,13 @@ def build_user_prompt_with_image(
 
     Falls back to text-only if the PDF cannot be converted.
 
-    For Task 1, the PDF image is REQUIRED — the model must see the
-    chart/graph/diagram. For Task 2, the PDF image is strongly preferred
-    (it shows the question the student was responding to).
+    For Task 1: If the PDF image cannot be attached AND the text prompt is
+    generic (no specific question), a warning is embedded in the prompt asking
+    the model to acknowledge the limitation. This prevents the model from
+    grading based on assumptions rather than seeing the actual chart.
+
+    For Task 2: The text prompt alone is usually sufficient since the full
+    essay question is extracted from the PDF.
     """
     content = build_user_prompt(task, prompt_text, word_minimum, essay, feedback_language)
 
@@ -347,17 +395,33 @@ def build_user_prompt_with_image(
             })
             return content
         elif is_task1:
-            raise ValueError(
-                "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "
-                f"The PDF file could not be converted to an image: {pdf_path}"
+            # Image conversion failed for Task 1 — the AI cannot see the chart.
+            # Add an explicit note so the grading reflects this limitation
+            # rather than pretending it can grade Task Achievement.
+            text_block = content[0]
+            text_block["text"] = (
+                "⚠️  WARNING: The Task 1 chart/graph/diagram could not be loaded as an image. "
+                "The AI CANNOT see the chart. Task Achievement grading will be approximate — "
+                "grade based on the text description of the task type and general IELTS Task 1 "
+                "expectations, but note in your comments that you could not see the chart.\n\n"
+                + text_block["text"]
             )
+            return content
 
-    # For Task 1, an image is mandatory (the model needs to see the chart/graph)
+    # For Task 1, an image is required (the model needs to see the chart/graph)
     if is_task1:
-        raise ValueError(
-            "Task 1 requires a PDF image of the chart/graph/diagram for the AI to grade accurately. "
-            "No PDF file was found for this task. Please ensure the task PDF exists."
+        # Instead of raising an error, add a clear warning so grading can still
+        # proceed but with Task Achievement caveated
+        text_block = content[0]
+        text_block["text"] = (
+            "⚠️  WARNING: No PDF image is available for this Task 1. The AI CANNOT see "
+            "the chart/graph/diagram. Grade based on general IELTS Task 1 criteria "
+            "(overview, data description, structure) but explicitly note in the task_response "
+            "comment that you could not verify the accuracy of the data description because "
+            "the chart was not visible.\n\n"
+            + text_block["text"]
         )
+        return content
 
     return content
 
@@ -421,8 +485,7 @@ def grade_essay(
 
     Args:
         task: ``"task1"`` or ``"task2"``
-        prompt: The writing task prompt/question text (from structured_final
-                or a fallback).
+        prompt: The writing task prompt/question text (from PDF + JSON metadata).
         word_minimum: Expected minimum word count (150 or 250).
         essay: The user's submitted essay.
         pdf_path: Optional path to the task PDF, which will be converted to
@@ -441,7 +504,6 @@ def grade_essay(
                     submitted without a usable PDF.
     """
     client = get_client()
-    model = settings.POE_MODEL
 
     # Auto-detect feedback language if not explicitly provided
     if feedback_language is None:
@@ -462,7 +524,13 @@ def grade_essay(
 
     messages.append({"role": "user", "content": user_content})
 
-    # Higher temperature for more nuanced grading; still low enough for consistency
+    # Choose model: use vision model if an image is attached, else use text model
+    has_image = any(
+        isinstance(block, dict) and block.get("type") == "image_url"
+        for block in user_content
+    )
+    model = settings.POE_VISION_MODEL if has_image else settings.POE_MODEL
+
     response = client.chat.completions.create(
         model=model,
         messages=messages,

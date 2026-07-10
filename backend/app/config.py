@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Poe API (OpenAI-compatible)
     POE_API_KEY: str = ""
     POE_MODEL: str = "gpt-5.4-nano"
+    POE_VISION_MODEL: str = "gemini-3.5-flash"  # Vision-capable model for Task 1 (needs to see charts)
 
     # CORS — comma-separated list of allowed origins
     CORS_ORIGINS: str = "http://localhost:5173"
